@@ -9,12 +9,15 @@ This file provides mandatory instructions for AI agents maintaining this SeAT v5
 - **Provider Loading Order**: Custom providers (Dashboard & Importing) **MUST** be registered in `config/app.php` **BEFORE** the `WebServiceProvider`. This ensures permissions are correctly injected into the Laravel Gate.
 - **Sidebar Validation**: Every sidebar menu and entry MUST have a `label` key. If `label` is missing, the sidebar renderer will silently fail to display the menu.
 
-## 2. Technical Standards
-- **Shell File Edits**: Always use single-quoted heredocs (`<<'EOF'`) when writing PHP files via the terminal to prevent the host shell from mangling PHP variables (e.g., `$request`).
-- **ESI Client**: Do not instantiate raw `Eseye` objects. Always resolve the `Seat\Services\Contracts\EsiClient` from the Laravel container to ensure proper authentication and PSR-18 HTTP client bindings.
-- **Database Precision**: Use `double` or `decimal` for market metrics (Markup %, Profit) to prevent "Numeric value out of range" errors when dealing with low-price Jita items.
+## 2. Living Documentation & Evolution (Mandatory)
+- **Knowledge Capture**: If you (the AI) discover a new server-specific quirk, fix a persistent 500 error, or identify a new dependency, you **MUST** append that knowledge to this file or `AI_CONTEXT.md` before ending the session.
+- **Root Cause Tracking**: Document "Why" a failure happened (e.g., "Fuzzwork CSV format changed to pipe-delimited") to prevent future agents from repeating the same investigation.
 
-## 3. Plugin Logic
-- **Background Cache Warming**: The Market Analysis dashboard is pre-calculated. If data looks stale, run:
-  `php artisan seat:importing:import --download --simulate`
-- **Hub Discovery**: The import engine dynamically finds Region IDs based on the `solar_system_id` or `structure_id` defined in the Market Hub settings.
+## 3. Technical Standards
+- **Shell File Edits**: Always use single-quoted heredocs (`<<'EOF'`) when writing PHP files via the terminal to prevent mangling PHP variables.
+- **ESI Client**: Always resolve `Seat\Services\Contracts\EsiClient` from the container. Do not use raw `Eseye` objects.
+- **Database Precision**: Use `double` for all market metrics to prevent out-of-range errors.
+
+## 4. Plugin Logic
+- **Background Cache Warming**: Dashboard tables are pre-calculated. Re-run `php artisan seat:importing:import --download --simulate` if data is stale.
+- **Hub Discovery**: Import engine dynamically finds Region IDs via `solar_system_id` or `structure_id`.
