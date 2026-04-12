@@ -30,3 +30,9 @@ If the dashboard or nexus pages return 500 errors after an update:
     2. Use `sed` to inject new `use` statements at the top.
     3. Use `sed` to remove the final closing brace `}` and then `cat >>` to append new methods before re-closing the class.
     4. This ensures existing variables like `$character_ids` and `$selected_corp_id` are never lost.
+
+### Vector K: SDE Model Relationship Gaps
+- **Symptom**: `Call to undefined relationship [solar_system] on model [StaStation]`.
+- **Cause**: Unlike character models, some SDE models (like `StaStation`) lack built-in Eloquent relationships to other tables.
+- **Fix**: Manually resolve the Solar System name by querying the `SolarSystem` model using the `solarSystemID` (note the casing) from the station record.
+- **Example**: `SolarSystem::where('system_id', $station->solarSystemID)->value('name')`.
