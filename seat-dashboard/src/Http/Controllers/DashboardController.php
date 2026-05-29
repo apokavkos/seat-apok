@@ -80,8 +80,11 @@ class DashboardController extends Controller
         $corp_wallet_balances = CorporationWalletBalance::where('corporation_id', $selected_corp_id)
             ->where('division', $wallet_division)->get();
 
-        $tracked_systems = SystemTrack::all();
-        $industry_data = $industryService->getSystemIndustryData($tracked_systems->pluck('system_id')->toArray());
+        $tracked_systems = SystemTrack::where('user_id', $user_id)->orderBy('sort_order', 'asc')->get();
+        $cost_indexes = $industryService->getSystemCostIndexes();
+        foreach ($tracked_systems as $system) {
+            $system->indexes = $cost_indexes[$system->solar_system_id] ?? [];
+        }
 
         return view('seat-dashboard::index', [
             'corporations' => $corporations,
@@ -91,7 +94,6 @@ class DashboardController extends Controller
             'grouped_jobs' => $grouped_jobs,
             'wallet_balances' => $wallet_balances,
             'corp_wallet_balances' => $corp_wallet_balances,
-            'industry_data' => $industry_data,
             'tracked_systems' => $tracked_systems,
         ]);
     }
@@ -148,9 +150,38 @@ class DashboardController extends Controller
         $request->validate(['system_name' => 'required|string']);
         $system = SolarSystem::where('name', $request->system_name)->first();
         if (!$system) return redirect()->back()->with('error', 'System not found.');
-        SystemTrack::updateOrCreate(['system_id' => $system->system_id], ['system_name' => $system->name]);
+
+        $user_id = auth()->user()->id;
+        SystemTrack::updateOrCreate([
+            'user_id' => $user_id,
+            'solar_system_id' => $system->system_id
+        ], [
+            'sort_order' => SystemTrack::where('user_id', $user_id)->max('sort_order') + 1
+        ]);
+
         return redirect()->back()->with('success', "Now tracking {$system->name}");
     }
 
-    public function removeSystem($id) { SystemTrack::where('system_id', $id)->delete(); return redirect()->back()->with('success', 'System removed.'); }
+    public function removeSystem($id)
+    {
+        $user_id = auth()->user()->id;
+        SystemTrack::where('user_id', $user_id)->where('id', $id)->delete();
+        return redirect()->back()->with('success', 'System removed.');
+    }
+
+    public function reorderSystems(Request $request)
+    {
+        $request->validate([
+            'order' => 'required|array',
+            'order.*' => 'required|integer',
+        ]);
+
+        $user_id = auth()->user()->id;
+
+        foreach ($request->order as $index => $id) {
+            SystemTrack::where('user_id', $user_id)->where('id', $id)->update(['sort_order' => $index]);
+        }
+
+        return response()->json(['success' => true]);
+    }
 }
