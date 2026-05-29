@@ -86,7 +86,7 @@ class DashboardController extends Controller
             $system->indexes = $cost_indexes[$system->solar_system_id] ?? [];
         }
 
-        return view('seat-dashboard::index', [
+        return view('seat-dashboard::dashboard.index', [
             'corporations' => $corporations,
             'selected_corp_id' => $selected_corp_id,
             'wallet_division' => $wallet_division,
