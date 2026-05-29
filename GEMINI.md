@@ -21,3 +21,11 @@ This file provides mandatory instructions for AI agents maintaining this SeAT v5
 ## 4. Plugin Logic
 - **Background Cache Warming**: Dashboard tables are pre-calculated. Re-run `php artisan seat:importing:import --download --simulate` if data is stale.
 - **Hub Discovery**: Import engine dynamically finds Region IDs via `solar_system_id` or `structure_id`.
+
+## 5. Troubleshooting History & Quirk Fixes
+- **Dashboard View Path Collision (500 View Not Found)**:
+  - *Quirk*: `DashboardController::index` returned `'seat-dashboard::index'`. But the blade view was stored under `src/resources/views/dashboard/index.blade.php`.
+  - *Fix*: Changed the controller returned view string to `'seat-dashboard::dashboard.index'`. Always match the exact nested directory naming in custom views.
+- **Undefined Method & Mismatched Columns in Dashboard**:
+  - *Quirk*: `DashboardController.php` called `getSystemIndustryData()` which was undefined, plucked `system_id` which was named `solar_system_id`, and called `updateOrCreate` on invalid columns.
+  - *Fix*: Re-routed to `getSystemCostIndexes()`, mapped indices dynamically to model instances, and corrected model operations to match DB schema.
