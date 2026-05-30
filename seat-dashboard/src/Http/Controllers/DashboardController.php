@@ -76,6 +76,57 @@ class DashboardController extends Controller
         $all_active_jobs = $char_jobs->concat($corp_jobs);
         $grouped_jobs = $all_active_jobs->groupBy('installer_id');
 
+        // Calculate slots used
+        $manu_used = 0;
+        $science_used = 0;
+        $reactions_used = 0;
+        foreach ($all_active_jobs as $job) {
+            if ($job->activity_id == 1) {
+                $manu_used++;
+            } elseif (in_array($job->activity_id, [3, 4, 5, 7, 8])) {
+                $science_used++;
+            } elseif ($job->activity_id == 9) {
+                $reactions_used++;
+            }
+        }
+
+        // Calculate total slots allowed based on character skills
+        $skills = DB::table('character_skills')
+            ->whereIn('character_id', $query_character_ids)
+            ->whereIn('skill_id', [3387, 24625, 3406, 24624, 45746, 45748])
+            ->get()
+            ->groupBy('character_id');
+
+        $manu_total = 0;
+        $science_total = 0;
+        $reactions_total = 0;
+
+        foreach ($query_character_ids as $char_id) {
+            $char_skills = $skills->get($char_id) ?: collect();
+            
+            $mass_prod = $char_skills->where('skill_id', 3387)->first()->active_skill_level ?? 0;
+            $adv_mass_prod = $char_skills->where('skill_id', 24625)->first()->active_skill_level ?? 0;
+            
+            $lab_op = $char_skills->where('skill_id', 3406)->first()->active_skill_level ?? 0;
+            $adv_lab_op = $char_skills->where('skill_id', 24624)->first()->active_skill_level ?? 0;
+            
+            $reactions = $char_skills->where('skill_id', 45746)->first()->active_skill_level ?? 0;
+            $mass_reactions = $char_skills->where('skill_id', 45748)->first()->active_skill_level ?? 0;
+
+            $manu_total += (1 + $mass_prod + $adv_mass_prod);
+            $science_total += (1 + $lab_op + $adv_lab_op);
+            $reactions_total += (1 + $reactions + $mass_reactions);
+        }
+
+        $summary = [
+            'manu_used' => $manu_used,
+            'manu_total' => $manu_total,
+            'science_used' => $science_used,
+            'science_total' => $science_total,
+            'reactions_used' => $reactions_used,
+            'reactions_total' => $reactions_total,
+        ];
+
         $wallet_balances = CharacterWalletBalance::whereIn('character_id', $query_character_ids)->get();
         $corp_wallet_balances = CorporationWalletBalance::where('corporation_id', $selected_corp_id)
             ->where('division', $wallet_division)->get();
@@ -95,6 +146,7 @@ class DashboardController extends Controller
             'wallet_balances' => $wallet_balances,
             'corp_wallet_balances' => $corp_wallet_balances,
             'tracked_systems' => $tracked_systems,
+            'summary' => $summary,
         ]);
     }
 
