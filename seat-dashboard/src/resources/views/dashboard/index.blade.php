@@ -297,6 +297,9 @@
             "order": [[1, "desc"]]
         });
 
+        // Initialize Corporation and Division select dropdowns
+        $('#corporation_id, #wallet_division').select2();
+
         // Initialize Select2
         $('#system-select').select2({
             ajax: {
