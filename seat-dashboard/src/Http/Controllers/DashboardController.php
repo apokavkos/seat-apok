@@ -90,18 +90,22 @@ class DashboardController extends Controller
             }
         }
 
-        // Calculate total slots allowed based on character skills
+        // Calculate total slots allowed based on character skills and attach them to character wallets
         $skills = DB::table('character_skills')
             ->whereIn('character_id', $query_character_ids)
             ->whereIn('skill_id', [3387, 24625, 3406, 24624, 45746, 45748])
             ->get()
             ->groupBy('character_id');
 
+        $wallet_balances = CharacterWalletBalance::whereIn('character_id', $query_character_ids)->with('character')->get();
+        
         $manu_total = 0;
         $science_total = 0;
         $reactions_total = 0;
+        $total_char_isk = $wallet_balances->sum('balance');
 
-        foreach ($query_character_ids as $char_id) {
+        foreach ($wallet_balances as $wallet) {
+            $char_id = $wallet->character_id;
             $char_skills = $skills->get($char_id) ?: collect();
             
             $mass_prod = $char_skills->where('skill_id', 3387)->first()->active_skill_level ?? 0;
@@ -113,9 +117,13 @@ class DashboardController extends Controller
             $reactions = $char_skills->where('skill_id', 45746)->first()->active_skill_level ?? 0;
             $mass_reactions = $char_skills->where('skill_id', 45748)->first()->active_skill_level ?? 0;
 
-            $manu_total += (1 + $mass_prod + $adv_mass_prod);
-            $science_total += (1 + $lab_op + $adv_lab_op);
-            $reactions_total += (1 + $reactions + $mass_reactions);
+            $wallet->manu_slots = 1 + $mass_prod + $adv_mass_prod;
+            $wallet->science_slots = 1 + $lab_op + $adv_lab_op;
+            $wallet->reactions_slots = 1 + $reactions + $mass_reactions;
+
+            $manu_total += $wallet->manu_slots;
+            $science_total += $wallet->science_slots;
+            $reactions_total += $wallet->reactions_slots;
         }
 
         $summary = [
@@ -127,7 +135,26 @@ class DashboardController extends Controller
             'reactions_total' => $reactions_total,
         ];
 
-        $wallet_balances = CharacterWalletBalance::whereIn('character_id', $query_character_ids)->get();
+        $character_wallets = $wallet_balances;
+
+        // Group active jobs by activity_id to calculate totals
+        $industry_jobs_totals = $all_active_jobs->groupBy('activity_id')->map(function ($group, $activity_id) {
+            return (object)[
+                'activity_id' => $activity_id,
+                'count' => $group->count()
+            ];
+        })->values();
+
+        $activity_mapping = [
+            1 => 'Manufacturing',
+            3 => 'Researching Time Efficiency',
+            4 => 'Researching Material Efficiency',
+            5 => 'Copying',
+            7 => 'Reverse Engineering',
+            8 => 'Invention',
+            9 => 'Reactions',
+        ];
+
         $corp_wallet_balances = CorporationWalletBalance::where('corporation_id', $selected_corp_id)
             ->where('division', $wallet_division)->get();
 
@@ -147,6 +174,10 @@ class DashboardController extends Controller
             'corp_wallet_balances' => $corp_wallet_balances,
             'tracked_systems' => $tracked_systems,
             'summary' => $summary,
+            'total_char_isk' => $total_char_isk,
+            'character_wallets' => $character_wallets,
+            'industry_jobs_totals' => $industry_jobs_totals,
+            'activity_mapping' => $activity_mapping,
         ]);
     }
 
