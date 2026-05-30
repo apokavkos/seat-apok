@@ -97,7 +97,8 @@ class DashboardController extends Controller
             ->get()
             ->groupBy('character_id');
 
-        $wallet_balances = CharacterWalletBalance::whereIn('character_id', $query_character_ids)->with('character')->get();
+        $characters = CharacterInfo::whereIn('character_id', $query_character_ids)->get()->keyBy('character_id');
+        $wallet_balances = CharacterWalletBalance::whereIn('character_id', $query_character_ids)->get();
         
         $manu_total = 0;
         $science_total = 0;
@@ -106,6 +107,7 @@ class DashboardController extends Controller
 
         foreach ($wallet_balances as $wallet) {
             $char_id = $wallet->character_id;
+            $wallet->character = $characters->get($char_id);
             $char_skills = $skills->get($char_id) ?: collect();
             
             $mass_prod = $char_skills->where('skill_id', 3387)->first()->active_skill_level ?? 0;
